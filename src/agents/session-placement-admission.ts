@@ -298,6 +298,8 @@ export async function withLocalSessionPlacementTurnSettlement(
       {
         priority: resolveEmbeddedRunSessionLanePolicy(options.trigger, options.inputProvenance)
           .priority,
+        // A lane wait pauses setup watchdogs, so the owner must be able to cancel the queued entry.
+        abortSignal: options.abortSignal,
         onQueued: () => {
           releaseCapacityWait = registerAgentRunCapacityWait(claim.runId, lifecycleGeneration);
           // Setup watchdogs (cron) must not spend their deadline behind a busy session turn.

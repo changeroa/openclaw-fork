@@ -288,6 +288,43 @@ describe("local turn placement admission", () => {
     }
   });
 
+  it("settles a queued CLI turn when its owner aborts while the session stays busy", async () => {
+    const gate = createDeferredCore();
+    const started = createDeferredCore();
+    const blocker = enqueueCommandInLane("session:agent:main:abort-queued", async () => {
+      started.resolve();
+      await gate.promise;
+    });
+    await started.promise;
+    const abort = new AbortController();
+    const task = vi.fn(async () => ({ meta: { durationMs: 1 } }));
+    const run = withLocalSessionPlacementTurnSettlement(
+      {
+        sessionId: "abort-queued",
+        sessionKey: "agent:main:abort-queued",
+        runId: "abort-queued-run",
+      },
+      task,
+      { abortSignal: abort.signal },
+    );
+    let settled: unknown = "pending";
+    void run.then(
+      () => (settled = "resolved"),
+      (error: unknown) => (settled = error),
+    );
+    const cancelled = new Error("cron run cancelled while queued");
+    try {
+      abort.abort(cancelled);
+      // Flush the abort handling without releasing the predecessor, which may never finish.
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(settled).toBe(cancelled);
+      expect(task).not.toHaveBeenCalled();
+    } finally {
+      gate.resolve();
+      await Promise.allSettled([blocker, run]);
+    }
+  });
+
   it("delegates the final turn decision to the installed provider", async () => {
     await withTestRunAdmission(turnParams, async (admittedRunContext) => {
       const activeParams = { ...turnParams, admittedRunContext };
