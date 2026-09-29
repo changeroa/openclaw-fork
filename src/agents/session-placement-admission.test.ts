@@ -316,7 +316,9 @@ describe("local turn placement admission", () => {
     try {
       abort.abort(cancelled);
       // Flush the abort handling without releasing the predecessor, which may never finish.
-      await new Promise((resolve) => setImmediate(resolve));
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
       expect(settled).toBe(cancelled);
       expect(task).not.toHaveBeenCalled();
     } finally {
