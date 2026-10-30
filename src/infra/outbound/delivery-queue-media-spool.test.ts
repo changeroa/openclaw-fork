@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Worker } from "node:worker_threads";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, assert, beforeEach, expect, it, vi } from "vitest";
 import { createSolidPngBuffer } from "../../../test/helpers/image-fixtures.js";
 import { createWarnLogCapture } from "../../logging/test-helpers/warn-log-capture.js";
 import { createImageProcessor } from "../../media/media-services.js";
@@ -227,6 +227,7 @@ it("expires abandoned stages before or after file publication without rescanning
   expect(existsSync(artifact)).toBe(false);
   await pruneOrphanedDeliveryQueueMedia({ stateDir, nowMs: Date.now() + 2 * DAY_MS });
   for (const entry of [staged, { payloads: [{ mediaUrl: artifact }], mediaStageId }]) {
+    assert(entry.mediaStageId);
     expect(
       loadDeliveryQueueEntry(DELIVERY_QUEUE_MEDIA_STAGING_QUEUE_NAME, entry.mediaStageId, stateDir),
     ).toBeNull();
@@ -243,6 +244,7 @@ it("reports failed releases, continues cleanup, and ignores missing or outside p
   const generationPartial = await seedArtifact(`g1-${PART_ARTIFACT}`, 0);
   const stuck = path.join(spoolRoot, ARTIFACT_A);
   await fs.mkdir(stuck);
+  await fs.writeFile(path.join(stuck, "retained.txt"), "keep");
   const capture = createWarnLogCapture("spool-release");
   try {
     await releaseSpoolArtifacts(
